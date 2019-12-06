@@ -442,6 +442,9 @@ export class ShadowDomWriterStreamer {
     /** @private {boolean} */
     this.mergeScheduled_ = false;
 
+    /** @private {!Promise} */
+    this.mergePromise_ = Promise.resolve();
+
     /** @const @private {!Promise} */
     this.success_ = Promise.resolve();
 
@@ -517,13 +520,15 @@ export class ShadowDomWriterStreamer {
     devAssert(this.onBody_ && this.onBodyChunk_ && this.onEnd_);
     if (!this.mergeScheduled_) {
       this.mergeScheduled_ = true;
-      this.vsync_.mutate(this.boundMerge_);
+      this.mergePromise_ = this.vsync_.mutatePromise(this.boundMerge_);
     }
+    return this.mergePromise_;
   }
 
   /** @private */
   merge_() {
     this.mergeScheduled_ = false;
+    this.mergePromise_ = Promise.resolve();
 
     // Body has been newly parsed.
     if (!this.targetBody_ && this.parser_.body) {
@@ -621,8 +626,7 @@ export class ShadowDomWriterBulk {
   close() {
     devAssert(this.onBody_ && this.onBodyChunk_ && this.onEnd_);
     this.eof_ = true;
-    this.vsync_.mutate(() => this.complete_());
-    return this.success_;
+    return this.vsync_.mutatePromise(() => this.complete_());
   }
 
   /** @override */
