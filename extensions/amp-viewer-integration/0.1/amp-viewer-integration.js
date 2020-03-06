@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+import {FixedLayer} from '../../../src/service/fixed-layer';
 import {FocusHandler} from './focus-handler';
 import {
   HighlightHandler,
@@ -80,6 +81,7 @@ export class AmpViewerIntegration {
     dev().fine(TAG, 'handshake init()');
     const ampdoc = getAmpdoc(this.win.document);
     const viewer = Services.viewerForDoc(ampdoc);
+    const viewport = Services.viewportForDoc(ampdoc);
     this.isWebView_ = viewer.getParam('webview') == '1';
     this.isHandShakePoll_ = viewer.hasCapability('handshakepoll');
     const messagingToken = viewer.getParam('messagingToken');
@@ -107,6 +109,18 @@ export class AmpViewerIntegration {
         }
       );
     }
+
+    if (MOVE_FIXED_LAYER) {
+      const fixedLayer = new FixedLayer(
+        ampdoc,
+        viewport.vsync_,
+        viewport.binding_.getBorderTop(),
+        viewport.paddingTop_,
+        viewport.binding_.requiresFixedLayerTransfer()
+      );
+      ampdoc.whenReady().then(() => fixedLayer.setup());
+    }
+
     /** @type {?HighlightInfoDef} */
     const highlightInfo = getHighlightParam(ampdoc);
     if (highlightInfo) {
@@ -118,6 +132,7 @@ export class AmpViewerIntegration {
       origin,
       this.win.parent /* target */
     );
+
     return this.openChannelAndStart_(
       viewer,
       ampdoc,

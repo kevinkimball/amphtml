@@ -139,15 +139,19 @@ export class ViewportImpl {
     /** @private {string|undefined} */
     this.originalViewportMetaString_ = undefined;
 
-    /** @private @const {!FixedLayer} */
-    this.fixedLayer_ = new FixedLayer(
-      ampdoc,
-      this.vsync_,
-      this.binding_.getBorderTop(),
-      this.paddingTop_,
-      this.binding_.requiresFixedLayerTransfer()
-    );
-    ampdoc.whenReady().then(() => this.fixedLayer_.setup());
+    /** @private @const {?FixedLayer} */
+    if (MOVE_FIXED_LAYER) {
+      this.fixedLayer_ = null;
+    } else {
+      this.fixedLayer_ = new FixedLayer(
+        ampdoc,
+        this.vsync_,
+        this.binding_.getBorderTop(),
+        this.paddingTop_,
+        this.binding_.requiresFixedLayerTransfer()
+      );
+      ampdoc.whenReady().then(() => this.fixedLayer_.setup());
+    }
 
     this.viewer_.onMessage('viewport', this.updateOnViewportEvent_.bind(this));
     this.viewer_.onMessage('scroll', this.viewerSetScrollTop_.bind(this));
@@ -396,7 +400,7 @@ export class ViewportImpl {
 
   /** @override */
   isDeclaredFixed(element) {
-    return this.fixedLayer_.isDeclaredFixed(element);
+    return this.fixedLayer_ && this.fixedLayer_.isDeclaredFixed(element);
   }
 
   /** @override */
@@ -592,7 +596,8 @@ export class ViewportImpl {
     );
 
     this.enterOverlayMode();
-    this.fixedLayer_.enterLightbox(opt_requestingElement, opt_onComplete);
+    this.fixedLayer_ &&
+      this.fixedLayer_.enterLightbox(opt_requestingElement, opt_onComplete);
 
     if (opt_requestingElement) {
       this.maybeEnterFieLightboxMode(
@@ -611,7 +616,7 @@ export class ViewportImpl {
       /* cancelUnsent */ true
     );
 
-    this.fixedLayer_.leaveLightbox();
+    this.fixedLayer_ && this.fixedLayer_.leaveLightbox();
     this.leaveOverlayMode();
 
     if (opt_requestingElement) {
@@ -772,17 +777,20 @@ export class ViewportImpl {
 
   /** @override */
   updateFixedLayer() {
-    this.fixedLayer_.update();
+    this.fixedLayer_ && this.fixedLayer_.update();
   }
 
   /** @override */
   addToFixedLayer(element, opt_forceTransfer) {
-    return this.fixedLayer_.addElement(element, opt_forceTransfer);
+    return (
+      this.fixedLayer_ &&
+      this.fixedLayer_.addElement(element, opt_forceTransfer)
+    );
   }
 
   /** @override */
   removeFromFixedLayer(element) {
-    this.fixedLayer_.removeElement(element);
+    this.fixedLayer_ && this.fixedLayer_.removeElement(element);
   }
 
   /**
@@ -878,7 +886,8 @@ export class ViewportImpl {
    * @private
    */
   animateFixedElements_(duration, curve, transient) {
-    this.fixedLayer_.updatePaddingTop(this.paddingTop_, transient);
+    this.fixedLayer_ &&
+      this.fixedLayer_.updatePaddingTop(this.paddingTop_, transient);
     if (duration <= 0) {
       return Promise.resolve();
     }
@@ -888,12 +897,13 @@ export class ViewportImpl {
       this.ampdoc.getRootNode(),
       time => {
         const p = tr(time);
-        this.fixedLayer_.transformMutate(`translateY(${p}px)`);
+        this.fixedLayer_ &&
+          this.fixedLayer_.transformMutate(`translateY(${p}px)`);
       },
       duration,
       curve
     ).thenAlways(() => {
-      this.fixedLayer_.transformMutate(null);
+      this.fixedLayer_ && this.fixedLayer_.transformMutate(null);
     });
   }
 
@@ -1015,7 +1025,15 @@ export class ViewportImpl {
     const oldSize = this.size_;
     this.size_ = null; // Need to recalc.
     const newSize = this.getSize();
-    this.fixedLayer_.update().then(() => {
+    let promise = null;
+
+    if (MOVE_FIXED_LAYER) {
+      promise = () => Promise.resolve();
+    } else {
+      promise = this.fixedLayer_.update;
+    }
+
+    promise().then(() => {
       const widthChanged = !oldSize || oldSize.width != newSize.width;
       this.changed_(/*relayoutAll*/ widthChanged, 0);
       const sizeChanged = widthChanged || oldSize.height != newSize.height;
