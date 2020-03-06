@@ -1,5 +1,12 @@
 {
-  "experimentA": {},
+  "experimentA": {
+    "name": "Move FixedLayer from Runtime to Viewer Integration",
+    "environment": "AMP",
+    "command": "gulp dist --defineExperimentConstant=MOVE_FIXED_LAYER",
+    "issue": "https://github.com/ampproject/amphtml/issues/27120",
+    "expirationDateUTC": "2020-12-31",
+    "defineExperimentConstant": "MOVE_FIXED_LAYER"
+  },
   "experimentB": {},
   "experimentC": {}
 }
